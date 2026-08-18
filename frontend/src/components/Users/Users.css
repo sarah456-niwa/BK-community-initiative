@@ -1,0 +1,129 @@
+.user-management {
+  padding: 24px;
+}
+
+.user-management .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.user-management .page-header h1 {
+  font-family: 'Sora', sans-serif;
+  font-size: 24px;
+  color: #1B1B2B;
+}
+
+.user-management .btn-primary {
+  background: #2E2C6E;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.user-management .btn-primary:hover {
+  background: #1C1B3A;
+}
+
+.user-management .search-bar {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.user-management .search-bar .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9294AB;
+}
+
+.user-management .search-bar input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid #E4E6F0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.user-management .search-bar input:focus {
+  border-color: #2E2C6E;
+}
+
+.user-management .users-table {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E4E6F0;
+  overflow: hidden;
+}
+
+.user-management .users-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.user-management .users-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #5A5C74;
+  font-size: 12px;
+  background: #FAFAFD;
+}
+
+.user-management .users-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  border-top: 1px solid #E4E6F0;
+}
+
+.user-management .role-tag {
+  background: #EEF0F8;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.user-management .status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.user-management .status.active {
+  background: #E1F4EA;
+  color: #2F9E68;
+}
+
+.user-management .status.inactive {
+  background: #FBE7E7;
+  color: #C94B4B;
+}
+
+.user-management .btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  margin: 0 4px;
+  color: #5A5C74;
+  transition: color 0.2s;
+}
+
+.user-management .btn-icon:hover {
+  color: #2E2C6E;
+}
+
+.user-management .btn-icon.danger:hover {
+  color: #C94B4B;
+}
