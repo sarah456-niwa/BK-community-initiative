@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit, Trash2, Users, AlertCircle, Filter } from 'lucide-react';
-import api from '../../services/api';
+import { Plus, Search, Eye, Edit, Trash2, Users, AlertCircle, Filter, RotateCcw } from 'lucide-react';
+import api, { reactivateChild } from '../../services/api';
 import toast from 'react-hot-toast';
 import './Children.css';
 
@@ -17,6 +17,7 @@ const ChildList = () => {
   const [genderFilter, setGenderFilter] = useState('');
   const [users, setUsers] = useState([]);
   const [therapistFilter, setTherapistFilter] = useState('');
+  const [recentlyReactivatedId, setRecentlyReactivatedId] = useState(null);
 
   const loadUsers = async () => {
     try {
@@ -66,6 +67,31 @@ const ChildList = () => {
     }
   };
 
+  const handleReactivate = async (id, name) => {
+    try {
+      await reactivateChild(id);
+      setRecentlyReactivatedId(id);
+      // Immediately reflect the status change to ACTIVE on the table
+      setChildren((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, status: 'ACTIVE', days_inactive: 0 } : c
+        )
+      );
+      toast.success(`${name}'s status has been reactivated to Active!`);
+      // Reload fresh data from backend
+      try {
+        const response = await api.get('/children/');
+        const freshList = Array.isArray(response.data) ? response.data : response.data.results || [];
+        setChildren(freshList);
+      } catch (err) {
+        console.error('Error refreshing children list:', err);
+      }
+    } catch (error) {
+      console.error('Error reactivating child:', error);
+      toast.error('Failed to reactivate child.');
+    }
+  };
+
   // Filter logic
   const filteredChildren = children.filter((child) => {
     const matchesSearch = 
@@ -74,7 +100,8 @@ const ChildList = () => {
       child.village?.toLowerCase().includes(search.toLowerCase()) ||
       child.district?.toLowerCase().includes(search.toLowerCase());
 
-    const matchesStatus = statusFilter ? child.status === statusFilter : true;
+    // Keep recently reactivated child visible on the table even if currently filtering by INACTIVE
+    const matchesStatus = (statusFilter && child.id !== recentlyReactivatedId) ? child.status === statusFilter : true;
     const matchesSeverity = severityFilter ? child.severity === severityFilter : true;
     const matchesGender = genderFilter ? child.gender === genderFilter : true;
     const matchesTherapist = therapistFilter ? String(child.therapist_assigned) === String(therapistFilter) : true;
@@ -85,6 +112,7 @@ const ChildList = () => {
   // Calculate statistics
   const totalCount = children.length;
   const activeCount = children.filter(c => c.status === 'ACTIVE').length;
+  const inactiveCount = children.filter(c => c.status === 'INACTIVE').length;
   const severeCount = children.filter(c => c.severity === 'SEVERE').length;
   const moderateCount = children.filter(c => c.severity === 'MODERATE').length;
 
@@ -102,21 +130,21 @@ const ChildList = () => {
 
       {/* Stats Cards */}
       <div className="stats-grid">
-        <div className="stats-card">
+        <div className="stats-card" style={{ cursor: 'pointer' }} onClick={() => setStatusFilter('')} title="Show All">
           <h3>Total Beneficiaries</h3>
           <div className="value">{totalCount}</div>
         </div>
-        <div className="stats-card">
-          <h3>Active Program</h3>
-          <div className="value">{activeCount}</div>
+        <div className="stats-card" style={{ cursor: 'pointer', borderLeft: statusFilter === 'ACTIVE' ? '3px solid #107E54' : undefined }} onClick={() => setStatusFilter(statusFilter === 'ACTIVE' ? '' : 'ACTIVE')} title="Click to filter Active">
+          <h3>Active Beneficiaries</h3>
+          <div className="value" style={{ color: '#107E54' }}>{activeCount}</div>
         </div>
         <div className="stats-card">
           <h3>Severe Cases</h3>
           <div className="value" style={{ color: '#C94B4B' }}>{severeCount}</div>
         </div>
-        <div className="stats-card">
-          <h3>Moderate Cases</h3>
-          <div className="value" style={{ color: '#B9793A' }}>{moderateCount}</div>
+        <div className="stats-card" style={{ cursor: 'pointer', borderLeft: statusFilter === 'INACTIVE' ? '3px solid #C94B4B' : undefined }} onClick={() => setStatusFilter(statusFilter === 'INACTIVE' ? '' : 'INACTIVE')} title="Click to filter Inactive">
+          <h3>Inactive (6+ Months)</h3>
+          <div className="value" style={{ color: inactiveCount > 0 ? '#C94B4B' : '#8890a6' }}>{inactiveCount}</div>
         </div>
       </div>
 
@@ -138,7 +166,7 @@ const ChildList = () => {
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="INACTIVE">Inactive (Auto-deactivated)</option>
               <option value="TRANSFERRED">Transferred</option>
               <option value="DECEASED">Deceased</option>
             </select>
@@ -231,12 +259,34 @@ const ChildList = () => {
                       </td>
                       <td>{child.village}</td>
                       <td>
-                        <span className={`status-pill ${child.status?.toLowerCase()}`}>
-                          {child.status}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
+                          <span className={`status-pill ${child.status?.toLowerCase()}`}>
+                            {child.status}
+                          </span>
+                          {child.id === recentlyReactivatedId && (
+                            <span style={{ fontSize: '10.5px', color: '#107E54', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              ✓ Just Activated
+                            </span>
+                          )}
+                          {child.status === 'INACTIVE' && child.days_inactive !== undefined && child.id !== recentlyReactivatedId && (
+                            <span style={{ fontSize: '10.5px', color: '#8890a6' }}>
+                              {child.days_inactive > 30 ? `${child.days_inactive}d` : `${child.days_inactive}m`} inactive
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div className="action-buttons-group">
+                          {child.status === 'INACTIVE' && (
+                            <button 
+                              className="btn-icon" 
+                              title="Reactivate to Active Status"
+                              style={{ color: '#107E54', background: '#F0FDF4' }}
+                              onClick={() => handleReactivate(child.id, child.full_name)}
+                            >
+                              <RotateCcw size={15} />
+                            </button>
+                          )}
                           <button 
                             className="btn-icon" 
                             title="View Profile"
@@ -285,9 +335,27 @@ const ChildList = () => {
                       <div><strong>Gender:</strong> {child.gender === 'M' ? 'Male' : child.gender === 'F' ? 'Female' : 'Other'}</div>
                       <div><strong>Disability:</strong> {child.disability_type || 'Unspecified'}</div>
                       <div><strong>Severity:</strong> <span className={`badge-severity ${child.severity?.toLowerCase()}`}>{child.severity}</span></div>
-                      <div><strong>Status:</strong> <span className={`status-pill ${child.status?.toLowerCase()}`}>{child.status}</span></div>
+                      <div>
+                        <strong>Status:</strong>{' '}
+                        <span className={`status-pill ${child.status?.toLowerCase()}`}>{child.status}</span>
+                        {child.id === recentlyReactivatedId && (
+                          <span style={{ fontSize: '10.5px', color: '#107E54', fontWeight: 700, marginLeft: '6px' }}>
+                            ✓ Just Activated
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="child-card-actions">
+                      {child.status === 'INACTIVE' && (
+                        <button 
+                          className="btn-icon" 
+                          title="Reactivate Child" 
+                          style={{ color: '#107E54', background: '#F0FDF4' }}
+                          onClick={() => handleReactivate(child.id, child.full_name)}
+                        >
+                          <RotateCcw size={16} />
+                        </button>
+                      )}
                       <button className="btn-icon" title="View" onClick={() => navigate(`/children/${child.id}`)}><Eye size={16} /></button>
                       <button className="btn-icon" title="Edit" onClick={() => navigate(`/children/${child.id}/edit`)}><Edit size={16} style={{ color: '#2F9E68' }} /></button>
                       <button className="btn-icon" title="Delete" onClick={() => handleDelete(child.id, child.full_name)}><Trash2 size={16} style={{ color: '#C94B4B' }} /></button>

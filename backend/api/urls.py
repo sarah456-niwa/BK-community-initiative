@@ -25,6 +25,7 @@ router.register(r'success-stories', SuccessStoryViewSet)
 
 router.register(r'safeguarding', SafeguardingIncidentViewSet)
 router.register(r'feedback', FeedbackViewSet)
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='login'),

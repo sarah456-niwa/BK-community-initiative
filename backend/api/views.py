@@ -23,6 +23,8 @@ from django.contrib.auth.models import User
 from .serializers import *
 from .permissions import *
 from .ai.manager import ai_manager  # NEW IMPORT
+from .report_exports import generate_pdf_report, generate_word_report, generate_excel_report
+from .inactivity_service import check_and_update_inactivity
 
 # ============================================
 # USER PERMISSIONS HELPER
@@ -125,7 +127,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
 
         # For create/update/destroy, allow administrators or Executive Officer group
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), CanManageUsers()]
 
         return [IsAuthenticated(), IsAdministrator()]
@@ -214,9 +216,39 @@ class ChildViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'gender', 'disability_type']
     search_fields = ['full_name', 'child_id', 'village', 'district']
     ordering_fields = ['full_name', 'date_of_birth']
+
+    def list(self, request, *args, **kwargs):
+        check_and_update_inactivity()
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        check_and_update_inactivity()
+        return super().retrieve(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def reactivate(self, request, pk=None):
+        child = self.get_object()
+        child.status = 'ACTIVE'
+        child.updated_at = timezone.now()
+        child.save(update_fields=['status', 'updated_at'])
+
+        actor_name = request.user.get_full_name() or request.user.username
+        Notification.objects.create(
+            user=request.user,
+            child=child,
+            notification_type='REACTIVATED',
+            title=f"🟢 Child Reactivated: {child.full_name}",
+            message=f"Child {child.full_name} ({child.child_id}) was successfully reactivated to ACTIVE status by {actor_name}.",
+            is_read=True
+        )
+
+        return Response({
+            'message': f'{child.full_name} has been reactivated to ACTIVE status.',
+            'child': ChildSerializer(child, context={'request': request}).data
+        }, status=status.HTTP_200_OK)
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
@@ -282,7 +314,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['uploaded_at']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
@@ -304,7 +336,7 @@ class ReferralViewSet(viewsets.ModelViewSet):
     ordering_fields = ['referral_date', 'status']
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
@@ -328,7 +360,7 @@ class OutreachClinicViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'number_attended']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
@@ -352,7 +384,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsTherapistOrHigher()]
         return [IsAuthenticated(), IsViewer()]
@@ -376,7 +408,7 @@ class TherapySessionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'hours']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             # pyrefly: ignore [unknown-name]
             return [IsAuthenticated(), IsTherapistOrHigher()]
         return [IsAuthenticated(), IsViewer()]
@@ -400,7 +432,7 @@ class AssistiveDeviceViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_issued']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -422,7 +454,7 @@ class SensoryDeviceViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_distributed']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -444,7 +476,7 @@ class CaregiverTrainingViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'attendance']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -466,7 +498,7 @@ class EducationalMaterialViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_distributed', 'quantity']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -488,7 +520,7 @@ class NutritionSupportViewSet(viewsets.ModelViewSet):
     ordering_fields = ['assessment_date']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -510,7 +542,7 @@ class FoodParcelViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_distributed']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -532,7 +564,7 @@ class CommunityOutreachViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'participants']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -555,7 +587,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -577,7 +609,7 @@ class ChallengeViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -600,7 +632,7 @@ class SuccessStoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_recorded']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -626,7 +658,7 @@ class SafeguardingIncidentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_of_incident']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -649,7 +681,7 @@ class FeedbackViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date_received']
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reactivate']:
             return [IsAuthenticated(), IsProgramManager()]
         return [IsAuthenticated(), IsViewer()]
     
@@ -667,6 +699,7 @@ class DashboardView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        check_and_update_inactivity()
         children = Child.objects.all()
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
@@ -676,6 +709,7 @@ class DashboardView(generics.GenericAPIView):
         data = {
             'total_children': children.count(),
             'active_children': children.filter(status='ACTIVE').count(),
+            'inactive_children': children.filter(status='INACTIVE').count(),
             'children_by_gender': children.values('gender').annotate(count=Count('id')),
             'children_by_disability': children.values('disability_type').annotate(count=Count('id')),
             'children_by_district': children.values('district').annotate(count=Count('id')),
@@ -812,6 +846,41 @@ class DashboardView(generics.GenericAPIView):
 # ============================================
 # REPORT GENERATION VIEW
 # ============================================
+# ============================================
+# NOTIFICATIONS VIEWSET
+# ============================================
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all().order_by('-created_at')
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['is_read', 'notification_type']
+    ordering_fields = ['created_at']
+
+    def list(self, request, *args, **kwargs):
+        check_and_update_inactivity()
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.read_at = timezone.now()
+        notification.save(update_fields=['is_read', 'read_at'])
+        return Response({'status': 'marked_read', 'id': str(notification.id)})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        Notification.objects.filter(is_read=False).update(is_read=True, read_at=timezone.now())
+        return Response({'status': 'all_marked_read'})
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        check_and_update_inactivity()
+        count = Notification.objects.filter(is_read=False).count()
+        return Response({'unread_count': count})
+
+
 class FinalReportViewSet(viewsets.ModelViewSet):
     queryset = FinalReport.objects.all().order_by('-generated_at')
     serializer_class = FinalReportSerializer
@@ -847,7 +916,10 @@ class ReportView(generics.GenericAPIView):
             'start_date': start_date,
             'end_date': end_date,
             'organization': 'BK Community Initiative',
-            'title': f"{report_type.title()} Report",
+            'title': request.data.get('title') or f"{report_type.replace('_', ' ').title()} Report",
+            'subtitle': request.data.get('subtitle') or f"Monitoring, Evaluation & Learning (MEL) • {report_type.replace('_', ' ').title()} Template",
+            'prepared_by': request.data.get('prepared_by') or (request.user.get_full_name() or request.user.username),
+            'notes': request.data.get('notes'),
             'editable': True,
             'can_download': True,
             'data': {}
@@ -865,6 +937,7 @@ class ReportView(generics.GenericAPIView):
             'materials': {'model': EducationalMaterial, 'serializer': EducationalMaterialSerializer},
             'nutrition': {'model': NutritionSupport, 'serializer': NutritionSupportSerializer},
             'food_parcels': {'model': FoodParcel, 'serializer': FoodParcelSerializer},
+            'community': {'model': CommunityOutreach, 'serializer': CommunityOutreachSerializer},
             'community_outreach': {'model': CommunityOutreach, 'serializer': CommunityOutreachSerializer},
             'meetings': {'model': Meeting, 'serializer': MeetingSerializer},
             'challenges': {'model': Challenge, 'serializer': ChallengeSerializer},
@@ -901,7 +974,29 @@ class ReportView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        filename_safe = report_data['title'].replace(' ', '_').lower()
+        filename_safe = re.sub(r'[^a-zA-Z0-9_\-]', '_', report_data['title'].lower()).strip('_') or 'report'
+
+        if format_type in ['excel', 'xlsx']:
+            excel_bytes = generate_excel_report(report_data)
+            response = HttpResponse(excel_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename={filename_safe}.xlsx'
+            return response
+
+        if format_type in ['word', 'docx']:
+            docx_bytes = generate_word_report(report_data)
+            response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            response['Content-Disposition'] = f'attachment; filename={filename_safe}.docx'
+            return response
+
+        if format_type == 'pdf':
+            pdf_bytes = generate_pdf_report(report_data)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename={filename_safe}.pdf'
+            return response
+
+        return Response({'error': 'Export failed.'}, status=500)
+
+        # Legacy export implementation below is bypassed
 
         if format_type in ['excel', 'xlsx']:
             workbook = Workbook()

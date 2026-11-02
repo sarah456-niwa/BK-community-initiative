@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Calendar, User, Phone, MapPin, Activity, ClipboardCheck, Accessibility, Apple, Heart, Info, Clock } from 'lucide-react';
-import api from '../../services/api';
+import { ArrowLeft, Edit, Calendar, User, Phone, MapPin, Activity, ClipboardCheck, Accessibility, Apple, Heart, Info, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
+import api, { reactivateChild } from '../../services/api';
+
 import toast from 'react-hot-toast';
 import './Children.css';
 
@@ -19,6 +20,7 @@ const ChildProfile = () => {
   
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [reactivating, setReactivating] = useState(false);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -61,6 +63,25 @@ const ChildProfile = () => {
     fetchProfileData();
   }, [id, navigate]);
 
+  const handleReactivate = async () => {
+    setReactivating(true);
+    try {
+      const res = await reactivateChild(child.id);
+      setChild(prev => ({
+        ...prev,
+        status: 'ACTIVE',
+        last_activity_date: res.data?.child?.last_activity_date || new Date().toISOString().split('T')[0],
+        days_inactive: 0
+      }));
+      toast.success(res.data?.message || 'Beneficiary status reactivated to Active!');
+    } catch (error) {
+      console.error('Failed to reactivate child:', error);
+      toast.error(error.response?.data?.error || 'Failed to reactivate beneficiary status.');
+    } finally {
+      setReactivating(false);
+    }
+  };
+
   if (loading) {
     return <div className="module-container" style={{ textAlign: 'center', padding: '100px' }}>Loading beneficiary case file...</div>;
   }
@@ -82,10 +103,61 @@ const ChildProfile = () => {
             <p style={{ margin: 0, color: '#1C7EC4', fontWeight: 600 }}>Case ID: {child.child_id}</p>
           </div>
         </div>
-        <button className="btn-primary" onClick={() => navigate(`/children/${child.id}/edit`)}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {child.status === 'INACTIVE' && (
+            <button 
+              className="btn-secondary" 
+              onClick={handleReactivate} 
+              disabled={reactivating}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#107E54', borderColor: '#107E54', background: '#F0FDF4' }}
+            >
+              <RotateCcw size={16} /> {reactivating ? 'Reactivating...' : 'Reactivate Status'}
+            </button>
+          )}
+          <button className="btn-primary" onClick={() => navigate(`/children/${child.id}/edit`)}>
           <Edit size={16} /> Edit Profile
         </button>
       </div>
+
+      </div>
+
+      {/* Inactive Notice Banner */}
+      {child.status === 'INACTIVE' && (
+        <div style={{
+          background: '#FEF3F2',
+          border: '1px solid #FECDCA',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          boxShadow: '0 2px 6px rgba(217, 45, 32, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ background: '#FEE4E2', borderRadius: '50%', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D92D20', flexShrink: 0 }}>
+              <AlertTriangle size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#B42318', fontSize: '15px' }}>
+                Beneficiary is Currently Inactive
+              </div>
+              <div style={{ color: '#7A271A', fontSize: '13px', marginTop: '2px' }}>
+                Auto-deactivated after 6 months (180+ days) without any service recorded across any module{child.days_inactive !== undefined ? ` (${child.days_inactive} days inactive)` : ''}. Reactivate this child whenever you need to resume services, schedule therapy sessions, issue devices, or conduct assessments.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleReactivate}
+            disabled={reactivating}
+            className="btn-primary"
+            style={{ background: '#107E54', borderColor: '#107E54', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}
+          >
+            <RotateCcw size={16} /> {reactivating ? 'Reactivating...' : 'Reactivate Status'}
+          </button>
+        </div>
+      )}
 
       <div className="profile-layout-grid" style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', alignItems: 'start' }}>
         
@@ -102,7 +174,36 @@ const ChildProfile = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <div style={{ fontSize: '12px', fontWeight: 600, color: '#8890a6', textTransform: 'uppercase', marginBottom: '4px' }}>Enrollment Status</div>
-              <span className={`status-pill ${child.status?.toLowerCase()}`}>{child.status}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className={`status-pill ${child.status?.toLowerCase()}`}>{child.status}</span>
+                {child.status === 'INACTIVE' && (
+                  <button
+                    onClick={handleReactivate}
+                    disabled={reactivating}
+                    style={{
+                      background: '#F0FDF4',
+                      border: '1px solid #107E54',
+                      color: '#107E54',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Reactivate child"
+                  >
+                    <RotateCcw size={12} /> Reactivate
+                  </button>
+                )}
+              </div>
+              {child.last_activity_date && (
+                <div style={{ fontSize: '11px', color: '#8890a6', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Clock size={12} /> Last activity: {child.last_activity_date} {child.days_inactive !== undefined ? `(${child.days_inactive > 30 ? `${child.days_inactive}d` : `${child.days_inactive}m`} ago)` : ''}
+                </div>
+              )}
             </div>
 
             <div>

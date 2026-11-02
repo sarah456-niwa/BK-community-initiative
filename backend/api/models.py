@@ -510,6 +510,32 @@ class FinalReport(BaseModel):
         ordering = ['-generated_at']
 
 
+# ============================================
+# NOTIFICATIONS
+# ============================================
+class Notification(BaseModel):
+    NOTIFICATION_TYPES = [
+        ('IMPENDING_INACTIVE', 'Impending Inactivity (1 Day Warning)'),
+        ('AUTO_DEACTIVATED', 'Auto Deactivated (6 Months Inactivity)'),
+        ('REACTIVATED', 'Reactivated'),
+        ('GENERAL', 'General Alert'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    child = models.ForeignKey(Child, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES, default='GENERAL')
+    title = models.CharField(max_length=250)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.notification_type}: {self.title}"
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     photo = models.ImageField(upload_to='profiles/', blank=True, null=True)

@@ -132,6 +132,8 @@ class ChildSerializer(serializers.ModelSerializer):
     age = serializers.SerializerMethodField()
     full_name_display = serializers.SerializerMethodField()
     therapist_name = serializers.SerializerMethodField()
+    last_activity_date = serializers.SerializerMethodField()
+    days_inactive = serializers.SerializerMethodField()
     
     class Meta:
         model = Child
@@ -151,6 +153,21 @@ class ChildSerializer(serializers.ModelSerializer):
     def get_full_name_display(self, obj):
         return f"{obj.child_id} - {obj.full_name}"
     
+    def get_last_activity_date(self, obj):
+        from .inactivity_service import get_child_last_activity_date
+        d = get_child_last_activity_date(obj)
+        return d.isoformat() if d else None
+
+    def get_days_inactive(self, obj):
+        from .inactivity_service import get_child_last_activity_datetime, TEST_INACTIVITY_MINUTES
+        dt = get_child_last_activity_datetime(obj)
+        if dt:
+            now = timezone.now()
+            if TEST_INACTIVITY_MINUTES is not None:
+                return max(0, int((now - dt).total_seconds() // 60))
+            return max(0, (now.date() - dt.date()).days)
+        return 0
+
     def get_therapist_name(self, obj):
         if obj.therapist_assigned:
             return f"{obj.therapist_assigned.first_name} {obj.therapist_assigned.last_name}"
@@ -281,8 +298,6 @@ class SuccessStorySerializer(serializers.ModelSerializer):
     def get_child_name(self, obj):
         return obj.child.full_name if obj.child else None
 
-
-
 class SafeguardingIncidentSerializer(serializers.ModelSerializer):
     child_name = serializers.SerializerMethodField()
     
@@ -305,3 +320,18 @@ class FinalReportSerializer(serializers.ModelSerializer):
         model = FinalReport
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+
+class NotificationSerializer(serializers.ModelSerializer):
+    child_name = serializers.SerializerMethodField()
+    child_case_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+
+    def get_child_name(self, obj):
+        return obj.child.full_name if obj.child else None
+
+    def get_child_case_id(self, obj):
+        return obj.child.child_id if obj.child else None

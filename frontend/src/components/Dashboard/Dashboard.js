@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Activity, MapPin, GraduationCap, Accessibility, Apple, ClipboardCheck, Star } from 'lucide-react';
+import { Users, Activity, MapPin, GraduationCap, Accessibility, Apple, ClipboardCheck, Star, UserX } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import {
@@ -175,6 +175,7 @@ const Dashboard = () => {
       <div className="stats-grid">
         <StatCard icon={Users} label="Total Children" value={activeData.total_children || 0} color={colors.primary} />
         <StatCard icon={Activity} label="Active Children" value={activeData.active_children || 0} color={colors.success} />
+        <StatCard icon={UserX} label="Inactive Children" value={activeData.inactive_children || 0} color={activeData.inactive_children > 0 ? colors.danger : '#8890a6'} />
         <StatCard icon={MapPin} label="Outreach Clinics" value={activeData.outreach_clinics?.total || 0} color={colors.secondary} />
         <StatCard icon={GraduationCap} label="Caregivers Trained" value={activeData.training?.caregivers_trained || 0} color={colors.warning} />
         <StatCard icon={Accessibility} label="Devices Distributed" value={activeData.devices?.total || 0} color={colors.secondary} />
@@ -222,6 +223,7 @@ const Dashboard = () => {
       <div className="chart-card" style={{ marginTop: '20px' }}>
         <h3>Real-Time System Program Highlights</h3>
         <ul style={{ paddingLeft: '1.2rem', lineHeight: '2.0', color: '#1B1B2B' }}>
+          <li><strong>{activeData.active_children || 0}</strong> active children receiving care; <strong>{activeData.inactive_children || 0}</strong> auto-flagged inactive due to 6+ months without recorded activity.</li>
           <li><strong>{activeData.outreach_clinics?.total || 0}</strong> outreach clinics completed with <strong>{activeData.outreach_clinics?.total_attended || 0}</strong> total children attended.</li>
           <li><strong>{activeData.referrals?.total || 0}</strong> referrals logged across the program.</li>
           <li><strong>{activeData.referrals?.children_referred || 0}</strong> unique children referred.</li>

@@ -3,7 +3,7 @@ import os
 import django
 import json
 
-sys.path.append(r'c:\Users\G G\Desktop\BK system\backend')
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'bk_mis.settings')
 django.setup()
 

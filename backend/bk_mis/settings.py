@@ -7,7 +7,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-*')
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-bk-community-initiative-mis-secret-key-32bytes-min!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
@@ -187,4 +187,13 @@ LOGGING = {
 # AI API KEYS (added for chat and report generation)
 
 GROQ_API_KEY = config('GROQ_API_KEY', default='')
-GEMINI_API_KEY = config('GEMINI_API_KEY', default='')# force reload
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
+# Child auto-deactivation testing mode:
+# Set to 3 for 3-minute testing mode (deactivates after 3 mins, warns at 2 mins).
+# Set to None for production mode (180 days = 6 months).
+CHILD_INACTIVITY_TEST_MINUTES = 3
+CHILD_INACTIVITY_THRESHOLD_DAYS = config('CHILD_INACTIVITY_THRESHOLD_DAYS', default=180, cast=int)
+
+
+

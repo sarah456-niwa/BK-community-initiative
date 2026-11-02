@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, User, Home, ShieldAlert, FileText } from 'lucide-react';
+import { ArrowLeft, Save, User, Home, ShieldAlert, FileText, Camera, Upload, Trash2 } from 'lucide-react';
+import CameraCaptureModal from '../Common/CameraCaptureModal';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import './Children.css';
@@ -15,6 +16,9 @@ const ChildForm = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -72,6 +76,9 @@ const ChildForm = () => {
       try {
         const response = await api.get(`/children/${id}/`);
         const data = response.data;
+        if (data.photo) {
+          setPhotoPreviewUrl(data.photo);
+        }
         
         // Format date of birth to YYYY-MM-DD and calculate age
         const formattedDOB = data.date_of_birth ? data.date_of_birth.substring(0, 10) : '';
@@ -145,6 +152,33 @@ const ChildForm = () => {
       }
       return next;
     });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreviewUrl(URL.createObjectURL(file));
+      toast.success('Photo file selected.');
+    }
+  };
+
+  const handleCameraCapture = (file, previewUrl) => {
+    setPhotoFile(file);
+    setPhotoPreviewUrl(previewUrl);
+    toast.success('Photo captured with camera!');
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null);
+    if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+    setPhotoPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    toast('Photo removed.', { icon: '🗑️' });
   };
 
   const handleSubmit = async (e) => {
@@ -340,13 +374,178 @@ const ChildForm = () => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Beneficiary Photo (Optional)</label>
+              {/* Beneficiary Photo with Camera and File Upload */}
+              <div className="form-group full-width">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Camera size={16} /> Beneficiary Photo (Optional)
+                </label>
+
+                {photoPreviewUrl ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      padding: '14px 18px',
+                      background: '#FAFAFD',
+                      border: '1px solid #E4E6F0',
+                      borderRadius: '12px',
+                      marginTop: '4px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: '2px solid #2E2C6E',
+                        flexShrink: 0,
+                        background: '#EEF0F8',
+                      }}
+                    >
+                      <img
+                        src={photoPreviewUrl}
+                        alt="Beneficiary Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '200px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#1B1B2B' }}>
+                          Photo Attached
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            background: '#E1F4EA',
+                            color: '#1E7E34',
+                            padding: '1px 8px',
+                            borderRadius: '10px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Ready
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#5A5C74' }}>
+                        This photo will be displayed on the child's profile and M&E reports.
+                      </p>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setIsCameraOpen(true)}
+                          className="btn-secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <Camera size={13} /> Retake with Camera
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="btn-secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <Upload size={13} /> Choose Another File
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          style={{
+                            background: '#FEE8E8',
+                            border: '1px solid #F8B4B4',
+                            color: '#C94B4B',
+                            borderRadius: '8px',
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Trash2 size={13} /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: '18px',
+                      background: '#FAFAFD',
+                      border: '1.5px dashed #DCDFEA',
+                      borderRadius: '12px',
+                      marginTop: '4px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '12px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: '13px', color: '#5A5C74' }}>
+                      Take an identification picture directly with your camera or select an image file:
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraOpen(true)}
+                        className="btn-primary"
+                        style={{
+                          padding: '8px 18px',
+                          fontSize: '13px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <Camera size={16} /> Take Photo with Camera
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="btn-secondary"
+                        style={{
+                          padding: '8px 18px',
+                          fontSize: '13px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <Upload size={16} /> Upload Image File
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <input
                   type="file"
+                  ref={fileInputRef}
                   accept="image/*"
-                  onChange={(e) => setPhotoFile(e.target.files[0])}
-                  style={{ border: 'none', padding: 0 }}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
                 />
               </div>
 
@@ -511,6 +710,21 @@ const ChildForm = () => {
               </div>
 
               <div className="form-group">
+                <label className="required">Enrollment Status</label>
+                <select 
+                  name="status" 
+                  value={formData.status} 
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="TRANSFERRED">Transferred</option>
+                  <option value="DECEASED">Deceased</option>
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Assigned Therapist / Case Worker</label>
                 <select 
                   name="therapist_assigned" 
@@ -583,6 +797,14 @@ const ChildForm = () => {
           </div>
         </form>
       </div>
+
+      {/* Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        title={isEditMode ? `Take Photo for ${formData.full_name || 'Child'}` : 'Take Beneficiary Photo'}
+      />
     </div>
   );
 };

@@ -74,9 +74,9 @@
 }
 
 .status-pill.inactive {
-  background: rgba(136, 144, 166, 0.12);
-  color: #5a5c74;
-  border: 1px solid rgba(136, 144, 166, 0.2);
+  background: #FEF3F2;
+  color: #B42318;
+  border: 1px solid #FECDCA;
 }
 
 .status-pill.transferred {

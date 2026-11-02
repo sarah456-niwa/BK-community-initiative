@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 import { getToken, removeToken } from './auth';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
@@ -40,6 +40,26 @@ export const chatWithAI = (question, provider = null) => {
 
 export const generateAIReport = (prompt, period, provider = null) => {
   return api.post('/chat/report/', { prompt, period, provider });
+};
+
+export const getNotifications = (params = {}) => {
+  return api.get('/notifications/', { params });
+};
+
+export const markNotificationRead = (id) => {
+  return api.post(`/notifications/${id}/mark_read/`);
+};
+
+export const markAllNotificationsRead = () => {
+  return api.post('/notifications/mark_all_read/');
+};
+
+export const getUnreadNotificationsCount = () => {
+  return api.get('/notifications/unread_count/');
+};
+
+export const reactivateChild = (id) => {
+  return api.post(`/children/${id}/reactivate/`);
 };
 
 export const getAIProviders = () => {
