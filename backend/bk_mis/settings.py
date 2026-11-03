@@ -12,7 +12,12 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-bk-community-initiati
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if '.onrender.com' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.onrender.com')
 
 # Application definition
 INSTALLED_APPS = [
@@ -51,6 +56,13 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
+# Whitenoise middleware for static files in production if installed
+try:
+    import whitenoise  # noqa: F401
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+
 ROOT_URLCONF = 'bk_mis.urls'
 
 TEMPLATES = [
@@ -78,6 +90,13 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    try:
+        import dj_database_url
+        DATABASES['default'] = dj_database_url.config(default=database_url, conn_max_age=600)
+    except Exception:
+        pass
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -104,7 +123,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+
+# WhiteNoise storage in production if available
+try:
+    import whitenoise  # noqa: F401
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+except ImportError:
+    pass
 
 # Media files
 MEDIA_URL = '/media/'
@@ -114,7 +140,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
@@ -183,9 +209,7 @@ LOGGING = {
     },
 }
 
-
 # AI API KEYS (added for chat and report generation)
-
 GROQ_API_KEY = config('GROQ_API_KEY', default='')
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
 
@@ -194,6 +218,3 @@ GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
 # Set to None for production mode (180 days = 6 months).
 CHILD_INACTIVITY_TEST_MINUTES = 3
 CHILD_INACTIVITY_THRESHOLD_DAYS = config('CHILD_INACTIVITY_THRESHOLD_DAYS', default=180, cast=int)
-
-
-
