@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, removeToken } from './auth';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://bk-community-initiative-11.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
