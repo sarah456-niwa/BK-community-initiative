@@ -1,4 +1,5 @@
-﻿const TOKEN_KEY = 'bk_mis_token';
+﻿
+const TOKEN_KEY = 'bk_mis_token';
 const USER_KEY = 'bk_mis_user';
 
 export const setToken = (token) => {

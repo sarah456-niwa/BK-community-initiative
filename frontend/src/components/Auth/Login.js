@@ -81,7 +81,7 @@ const Login = () => {
           </button>
 
           <div className="login-footer">
-            <span>BK Community Initiative © 2024</span>
+            <span>BK Community Initiative</span>
           </div>
         </form>
       </div>
